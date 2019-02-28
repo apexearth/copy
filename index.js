@@ -6,6 +6,7 @@ const copyFile    = promisify(fs.copyFile)
 const stat        = promisify(fs.stat)
 const mkdir       = promisify(fs.mkdir)
 const program     = require('commander')
+const pretty      = require('prettysize')
 const {version}   = require('./package.json')
 
 class Copy {
@@ -27,6 +28,7 @@ class Copy {
         if (isDirectory && this.recursive) {
             await this.copyDirectory(from, to)
         } else if (!isDirectory) {
+            this.fromSize = s.size
             await this.copyFile(from, to)
         }
     }
@@ -54,10 +56,7 @@ class Copy {
         try {
             await stat(to)
             if (this.overwrite) {
-                await copyFile(from, to)
-                if (this.verbose) {
-                    console.log('complete.')
-                }
+                await this.doCopy(from, to)
             } else {
                 if (this.verbose) {
                     console.log('skipped.')
@@ -65,13 +64,21 @@ class Copy {
             }
         } catch (err) {
             if (err.code === 'ENOENT') {
-                await copyFile(from, to)
-                if (this.verbose) {
-                    console.log('complete.')
-                }
+                await this.doCopy(from, to)
             } else {
                 throw err
             }
+        }
+    }
+
+    async doCopy(from, to) {
+        if (this.verbose) {
+            const start = Date.now()
+            await copyFile(from, to)
+            const speed = pretty(this.fromSize / ((Date.now() - start) / 1000))
+            console.log(`complete. (${speed}/s)`)
+        } else {
+            await copyFile(from, to)
         }
     }
 }
