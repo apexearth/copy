@@ -53,21 +53,21 @@ class Copy {
         }
         try {
             await stat(to)
-            await copyFile(from, to)
-            if (this.verbose) {
-                console.log('complete.')
+            if (this.overwrite) {
+                await copyFile(from, to)
+                if (this.verbose) {
+                    console.log('complete.')
+                }
+            } else {
+                if (this.verbose) {
+                    console.log('skipped.')
+                }
             }
         } catch (err) {
             if (err.code === 'ENOENT') {
-                if (this.overwrite) {
-                    await copyFile(from, to)
-                    if (this.verbose) {
-                        console.log('complete.')
-                    }
-                } else {
-                    if (this.verbose) {
-                        console.log('skipped.')
-                    }
+                await copyFile(from, to)
+                if (this.verbose) {
+                    console.log('complete.')
                 }
             } else {
                 throw err
