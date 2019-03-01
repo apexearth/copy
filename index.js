@@ -11,60 +11,85 @@ const {version}   = require('./package.json')
 
 class Copy {
     constructor(options) {
-        this.from      = options.from
-        this.to        = options.to
-        this.recursive = options.recursive
-        this.overwrite = options.overwrite
-        this.verbose   = options.verbose
+        this.from         = options.from
+        this.to           = options.to
+        this.recursive    = options.recursive
+        this.overwrite    = options.overwrite
+        this.verbose      = options.verbose
+        this.ignoreErrors = options.ignoreErrors
     }
 
     async start() {
-        this.copy(this.from, this.to)
+        await this.copy(this.from, this.to)
     }
 
     async copy(from, to) {
-        const s           = await stat(from)
-        const isDirectory = s.isDirectory()
-        if (isDirectory && this.recursive) {
-            await this.copyDirectory(from, to)
-        } else if (!isDirectory) {
-            this.fromSize = s.size
-            await this.copyFile(from, to)
+        try {
+            const s           = await stat(from)
+            const isDirectory = s.isDirectory()
+            if (isDirectory && this.recursive) {
+                await this.copyDirectory(from, to)
+            } else if (!isDirectory) {
+                this.fromSize = s.size
+                await this.copyFile(from, to)
+            }
+        } catch (err) {
+            if (this.ignoreErrors) {
+                console.error(err)
+            } else {
+                throw err
+            }
         }
     }
 
     async copyDirectory(from, to) {
         try {
-            await stat(to)
+            try {
+                await stat(to)
+            } catch (err) {
+                if (err.code === 'ENOENT') {
+                    await mkdir(to)
+                } else {
+                    throw err
+                }
+            }
+            const files = await readdir(from)
+            for (let file of files) {
+                await this.copy(path.join(from, file), path.join(to, file))
+            }
         } catch (err) {
-            if (err.code === 'ENOENT') {
-                await mkdir(to)
+            if (this.ignoreErrors) {
+                console.error(err)
             } else {
                 throw err
             }
         }
-        const files = await readdir(from)
-        for (let file of files) {
-            await this.copy(path.join(from, file), path.join(to, file))
-        }
     }
 
     async copyFile(from, to) {
-        if (this.verbose) {
-            process.stdout.write(`Copying: '${to}' ...`)
-        }
         try {
-            await stat(to)
-            if (this.overwrite) {
-                await this.doCopy(from, to)
-            } else {
-                if (this.verbose) {
-                    console.log('skipped.')
+            if (this.verbose) {
+                process.stdout.write(`Copying: '${to}' ...`)
+            }
+            try {
+                await stat(to)
+                if (this.overwrite) {
+                    await this.doCopy(from, to)
+                } else {
+                    if (this.verbose) {
+                        console.log('skipped.')
+                    }
+                }
+            } catch (err) {
+                if (err.code === 'ENOENT') {
+                    await this.doCopy(from, to)
+                } else {
+                    throw err
                 }
             }
         } catch (err) {
-            if (err.code === 'ENOENT') {
-                await this.doCopy(from, to)
+            if (this.ignoreErrors) {
+                console.error(err)
             } else {
                 throw err
             }
@@ -72,13 +97,22 @@ class Copy {
     }
 
     async doCopy(from, to) {
-        if (this.verbose) {
-            const start = Date.now()
-            await copyFile(from, to)
-            const speed = pretty(this.fromSize / ((Date.now() - start) / 1000))
-            console.log(`complete. (${speed}/s)`)
-        } else {
-            await copyFile(from, to)
+        try {
+            if (this.verbose) {
+                const start = Date.now()
+                await copyFile(from, to)
+                const speed = pretty(this.fromSize / ((Date.now() - start) / 1000))
+                console.log(`complete. (${speed}/s)`)
+            } else {
+                await copyFile(from, to)
+            }
+        } catch (err) {
+            if (this.ignoreErrors) {
+                console.log(`error.`)
+                console.error(err)
+            } else {
+                throw err
+            }
         }
     }
 }
@@ -92,6 +126,7 @@ if (require.main === module) {
         .option('-r --recursive', 'Copy recursively.')
         .option('-o --overwrite', 'Overwrite existing.')
         .option('-v --verbose', 'Verbose output.')
+        .option('-e --ignore-errors', 'Ignore errors.')
         .action((from, to) => {
             (async () => {
                 program.from = from
