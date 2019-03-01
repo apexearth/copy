@@ -9,6 +9,7 @@ const stat        = promisify(fs.stat)
 const mkdir       = promisify(fs.mkdir)
 const program     = require('commander')
 const pretty      = require('prettysize')
+const sleep       = require('sleep-promise')
 const {version}   = require('./package.json')
 
 /**
@@ -18,19 +19,51 @@ const {version}   = require('./package.json')
  * @param {boolean} overwrite - Overwrite existing files.
  * @param {boolean} verbose - Verbose output.
  * @param {boolean} ignoreErrors - Continue on errors.
+ * @param {boolean} parallelJobs - Number of possible concurrent jobs.
+ * @param {string} state - Save state for resume ability.
  */
 class Copy {
-    constructor(options) {
-        this.from         = options.from
-        this.to           = options.to
-        this.recursive    = options.recursive
-        this.overwrite    = options.overwrite
-        this.verbose      = options.verbose
-        this.ignoreErrors = options.ignoreErrors
+    constructor({
+        from,
+        to,
+        recursive = false,
+        overwrite = false,
+        verbose = false,
+        ignoreErrors = false,
+        parallelJobs = 1,
+        state
+    } = {}) {
+        this.from         = from
+        this.to           = to
+        this.recursive    = recursive
+        this.overwrite    = overwrite
+        this.verbose      = verbose
+        this.ignoreErrors = ignoreErrors
+        this.parallelJobs = parallelJobs
+        this.state        = state || `node-copy_${(from + '_' + to).replace(/[/\\]/g, '')}.state`
+
+        this.pending = []
+        this.errors  = []
+        this.counts  = {
+            directories: 0,
+            files      : 0
+        }
     }
 
     async start() {
         await this.copy(this.from, this.to)
+    }
+
+    async processJobErrors() {
+        let err = this.errors.unshift()
+        while (err) {
+            if (this.ignoreErrors) {
+                console.error(err)
+            } else {
+                throw err
+            }
+            err = this.errors.unshift()
+        }
     }
 
     async copy(from, to) {
@@ -41,8 +74,9 @@ class Copy {
                 await this.copyDirectory(from, to)
             } else if (!isDirectory) {
                 this.fromSize = s.size
-                await this.copyFile(from, to)
+                await this.queueAction(() => this.copyFile(from, to))
             }
+            await this.processJobErrors()
         } catch (err) {
             if (this.ignoreErrors) {
                 console.error(err)
@@ -73,13 +107,30 @@ class Copy {
             } else {
                 throw err
             }
+        } finally {
+            this.counts.directories++
         }
+    }
+
+    async queueAction(asyncFunction) {
+        while (this.pending.length >= this.parallelJobs) {
+            await sleep(10)
+        }
+        const action = async () => {
+            try {
+                await asyncFunction()
+            } finally {
+                this.pending.splice(this.pending.indexOf(asyncFunction), 1)
+            }
+        }
+        this.pending.push(action)
+        action().catch(err => this.errors.push(err))
     }
 
     async copyFile(from, to) {
         try {
             if (this.verbose) {
-                process.stdout.write(`Copying: '${to}' ...`)
+                this.log(`Copying: '${to}' (start)`)
             }
             try {
                 await stat(to)
@@ -87,7 +138,7 @@ class Copy {
                     await this.doCopy(from, to)
                 } else {
                     if (this.verbose) {
-                        console.log('skipped.')
+                        this.log(`Copying: '${to}' (skipped)`)
                     }
                 }
             } catch (err) {
@@ -103,6 +154,8 @@ class Copy {
             } else {
                 throw err
             }
+        } finally {
+            this.counts.files++
         }
     }
 
@@ -112,17 +165,24 @@ class Copy {
                 const start = Date.now()
                 await copyFile(from, to)
                 const speed = pretty(this.fromSize / ((Date.now() - start) / 1000))
-                console.log(`complete. (${speed}/s)`)
+                this.log(`Copying: '${to}' (complete) (${speed}/s)`)
             } else {
                 await copyFile(from, to)
             }
         } catch (err) {
             if (this.ignoreErrors) {
-                console.log(`error.`)
+                this.log(`Copying: '${to}' (error)`)
                 console.error(err)
             } else {
                 throw err
             }
+        }
+    }
+
+    log(message) {
+        if (this.verbose) {
+            process.stdout.write(`Count: ${this.counts.directories}d ${this.counts.files}f `)
+            console.log(`Jobs: ${this.pending.length} ${message}`)
         }
     }
 }
@@ -137,10 +197,12 @@ if (require.main === module) {
     program
         .version(version)
         .arguments('<from> <to>')
-        .option('-r --recursive', 'Copy recursively.')
-        .option('-o --overwrite', 'Overwrite existing.')
-        .option('-v --verbose', 'Verbose output.')
-        .option('-e --ignore-errors', 'Ignore errors.')
+        .option('-r, --recursive', 'Copy recursively.')
+        .option('-o, --overwrite', 'Overwrite existing.')
+        .option('-v, --verbose', 'Verbose output.')
+        .option('-e, --ignore-errors', 'Ignore errors.')
+        .option('-p, --parallel-jobs <n>', 'Number of possible concurrent jobs.')
+        .option('-s, --state [state]', 'Save state for resume ability.')
         .action((from, to) => {
             (async () => {
                 program.from = from
