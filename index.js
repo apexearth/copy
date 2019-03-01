@@ -23,6 +23,7 @@ const {version}   = require('./package.json')
  * @param {boolean} ignoreErrors - Continue on errors.
  * @param {boolean} parallelJobs - Number of possible concurrent jobs.
  * @param {string} state - Save state for resume ability.
+ * @param {string} stateFrequency - Save state frequency.
  */
 class Copy {
     constructor({
