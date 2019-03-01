@@ -5,6 +5,8 @@ const path        = require('path')
 const {promisify} = require('util')
 const readdir     = promisify(fs.readdir)
 const copyFile    = promisify(fs.copyFile)
+const readFile    = promisify(fs.readFile)
+const writeFile   = promisify(fs.writeFile)
 const stat        = promisify(fs.stat)
 const mkdir       = promisify(fs.mkdir)
 const program     = require('commander')
@@ -31,27 +33,53 @@ class Copy {
         verbose = false,
         ignoreErrors = false,
         parallelJobs = 1,
-        state
+        state,
+        stateFrequency = 100
     } = {}) {
-        this.from         = from
-        this.to           = to
-        this.recursive    = recursive
-        this.overwrite    = overwrite
-        this.verbose      = verbose
-        this.ignoreErrors = ignoreErrors
-        this.parallelJobs = parallelJobs
-        this.state        = state || `node-copy_${(from + '_' + to).replace(/[/\\]/g, '')}.state`
+        this.from           = from
+        this.to             = to
+        this.recursive      = recursive
+        this.overwrite      = overwrite
+        this.verbose        = verbose
+        this.ignoreErrors   = ignoreErrors
+        this.parallelJobs   = parallelJobs
+        this.stateFile      = state
+        this.stateFrequency = stateFrequency
+
+        this.stateCatchUp = false // Set true when we need to catch up to our saved state.
+        this.state        = {
+            lastFile: null,
+            counts  : {
+                directories: 0,
+                files      : 0
+            },
+        }
 
         this.pending = []
         this.errors  = []
-        this.counts  = {
-            directories: 0,
-            files      : 0
-        }
     }
 
     async start() {
+        await this.loadState()
         await this.copy(this.from, this.to)
+    }
+
+    async loadState() {
+        if (!this.stateFile) return
+        try {
+            await stat(this.stateFile)
+            this.state        = JSON.parse(await readFile(this.stateFile))
+            this.stateCatchUp = true
+        } catch (err) {
+            if (err.code !== 'ENOENT') {
+                throw err
+            }
+        }
+    }
+
+    async saveState() {
+        if (!this.stateFile) return
+        await writeFile(this.stateFile, JSON.stringify(this.state))
     }
 
     async processJobErrors() {
@@ -67,6 +95,10 @@ class Copy {
     }
 
     async copy(from, to) {
+        if (this.stateCatchUp && !this.state.lastFile.startsWith(from)) return
+        if (this.stateCatchUp && this.state.lastFile === from) {
+            this.stateCatchUp = false // We're caught up -- yay!
+        }
         try {
             const s           = await stat(from)
             const isDirectory = s.isDirectory()
@@ -108,7 +140,7 @@ class Copy {
                 throw err
             }
         } finally {
-            this.counts.directories++
+            this.state.counts.directories++
         }
     }
 
@@ -155,7 +187,10 @@ class Copy {
                 throw err
             }
         } finally {
-            this.counts.files++
+            this.state.lastFile = from
+            if (this.state.counts.files % this.stateFrequency === 0) {
+                await this.saveState()
+            }
         }
     }
 
@@ -169,6 +204,7 @@ class Copy {
             } else {
                 await copyFile(from, to)
             }
+            this.state.counts.files++
         } catch (err) {
             if (this.ignoreErrors) {
                 this.log(`Copying: '${to}' (error)`)
@@ -181,7 +217,7 @@ class Copy {
 
     log(message) {
         if (this.verbose) {
-            process.stdout.write(`Count: ${this.counts.directories}d ${this.counts.files}f `)
+            process.stdout.write(`Count: ${this.state.counts.directories}d ${this.state.counts.files}f `)
             console.log(`Jobs: ${this.pending.length} ${message}`)
         }
     }
@@ -202,7 +238,8 @@ if (require.main === module) {
         .option('-v, --verbose', 'Verbose output.')
         .option('-e, --ignore-errors', 'Ignore errors.')
         .option('-p, --parallel-jobs <n>', 'Number of possible concurrent jobs.')
-        .option('-s, --state [state]', 'Save state for resume ability.')
+        .option('-s, --state <file>', 'Save state to file for resume ability.')
+        .option('--state-frequency <n>', 'Save state frequency. (In <n> files saved.)')
         .action((from, to) => {
             (async () => {
                 program.from = from
