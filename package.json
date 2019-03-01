@@ -1,16 +1,25 @@
 {
-  "name": "copy",
+  "name": "@apexearth/copy",
   "version": "1.0.0",
-  "description": "",
+  "description": "Copy files via Node or command-line!",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "keywords": [],
-  "author": "",
+  "keywords": [
+    "copy",
+    "files"
+  ],
+  "bin": {
+    "node-copy": "index.js"
+  },
+  "author": "apexearth@gmail.com",
   "license": "ISC",
   "dependencies": {
     "commander": "^2.19.0",
     "prettysize": "^2.0.0"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }

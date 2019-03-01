@@ -1,3 +1,5 @@
+#!/usr/bin/env node
+
 const fs          = require('fs')
 const path        = require('path')
 const {promisify} = require('util')
@@ -9,6 +11,14 @@ const program     = require('commander')
 const pretty      = require('prettysize')
 const {version}   = require('./package.json')
 
+/**
+ * @param {string} from - Source copy path.
+ * @param {string} to - Destination copy path.
+ * @param {boolean} recursive - Copy recursively.
+ * @param {boolean} overwrite - Overwrite existing files.
+ * @param {boolean} verbose - Verbose output.
+ * @param {boolean} ignoreErrors - Continue on errors.
+ */
 class Copy {
     constructor(options) {
         this.from         = options.from
@@ -117,7 +127,11 @@ class Copy {
     }
 }
 
-module.exports = Copy
+module.exports      = options => {
+    const copy = new Copy(options)
+    return copy.start()
+}
+module.exports.Copy = Copy
 
 if (require.main === module) {
     program
