@@ -4,7 +4,7 @@ node_js:
   - "10"
   - "8"
 script:
-  - npm run coverage
+  - npm test
 deploy:
   provider: npm
   email: apexearth@gmail.com

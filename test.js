@@ -5,16 +5,10 @@ import dircompare from 'dir-compare'
 import rimraf from 'rimraf'
 import {promisify} from 'util'
 
-const stat    = promisify(fs.stat)
-const unlink  = promisify(fs.unlink)
-const rimrafp = promisify(rimraf)
-
-/**
- * Node Tests
- */
-test('copy single file', async t => {
-    const from = 'test_files/file1'
-    const to   = `test_files_target/copy single file/file1`
+const stat           = promisify(fs.stat)
+const unlink         = promisify(fs.unlink)
+const rimrafp        = promisify(rimraf)
+const deleteIfExists = async to => {
     try {
         await unlink(to)
     } catch (err) {
@@ -22,6 +16,14 @@ test('copy single file', async t => {
             throw err
         }
     }
+}
+/**
+ * Node Tests
+ */
+test('copy single file', async t => {
+    const from = 'test_files/file1'
+    const to   = 'test_files_target/copy single file/file1'
+    await deleteIfExists(to)
     await copy({
         from,
         to,
@@ -33,7 +35,7 @@ test('copy single file', async t => {
 
 test('copy recursive', async t => {
     const from = 'test_files/'
-    const to   = `test_files_target/copy recursive/`
+    const to   = 'test_files_target/copy recursive/'
     await rimrafp(to)
     await copy({
         from,
@@ -47,7 +49,7 @@ test('copy recursive', async t => {
 
 test('copy recursive (all options)', async t => {
     const from = 'test_files/'
-    const to   = `test_files_target/copy recursive all options/`
+    const to   = 'test_files_target/copy recursive all options/'
     await rimrafp(to)
     await copy({
         from,
@@ -88,4 +90,60 @@ test('throws when no args specified', async t => {
 
 test('import package', t => {
     t.is(typeof require('.'), 'function')
+})
+
+test('does not implicitly overwrite', async t => {
+    const from = 'test_files/file1'
+    const to   = 'test_files_target/does not implicitly overwrite/file1'
+
+    const state = await copy({
+        from,
+        to,
+    })
+    t.is(state.counts.directories, 0)
+    t.is(state.counts.files, 0)
+
+    const comparison = await dircompare.compare(from, to, {compareSize: true})
+    t.is(comparison.same, false)
+})
+
+test('copyFile throw', async t => {
+    const from = 'test_files/file1'
+    const to   = 'test_files_target/copy file throw/file1'
+    await deleteIfExists(to)
+
+    await t.throwsAsync(async () => await copy({
+        from,
+        to,
+        copyFile: (from, to, done) => done(new Error('Ehh!')),
+    }))
+})
+
+test('copyFile throw ignoreErrors', async t => {
+    const from = 'test_files/file1'
+    const to   = 'test_files_target/copyFile throw ignoreErrors/file1'
+    await deleteIfExists(to)
+
+    const state = await copy({
+        from,
+        to,
+        ignoreErrors: true,
+        copyFile    : (from, to, done) => done(new Error('Ehh!')),
+    })
+    t.is(state.counts.directories, 0)
+    t.is(state.counts.files, 0)
+})
+
+
+test('readdir throw', async t => {
+    const from = 'test_files/'
+    const to   = 'test_files_target/readdir throw/'
+    await rimrafp(to)
+
+    await t.throwsAsync(async () => await copy({
+        from,
+        to,
+        recursive: true,
+        readdir: (path, done) => done(new Error('Ehh!')),
+    }))
 })

@@ -1,8 +1,6 @@
 const fs          = require('fs')
 const path        = require('path')
 const {promisify} = require('util')
-const readdir     = promisify(fs.readdir)
-const copyFile    = promisify(fs.copyFile)
 const readFile    = promisify(fs.readFile)
 const writeFile   = promisify(fs.writeFile)
 const stat        = promisify(fs.stat)
@@ -22,35 +20,26 @@ const assert      = require('assert')
  * @param {boolean} parallelJobs - Number of possible concurrent jobs.
  * @param {string} state - Save state for resume ability.
  * @param {string} stateFrequency - Save state frequency.
+ * @param {string} copyFile - Supply your own copyFile function. (from, to, cb)
+ * @param {string} readdir - Supply your own readdir function. (path, cb)
  */
 class Copy {
-    constructor({
-        from,
-        to,
-        recursive = false,
-        overwrite = false,
-        verbose = false,
-        ignoreErrors = false,
-        parallelJobs = 1,
-        state,
-        stateFrequency = 100
-    } = {}) {
-        assert(typeof from === 'string', 'from should be a string')
-        assert(typeof to === 'string', 'to should be a string')
-        assert(typeof parallelJobs === 'number', 'parallelJobs should be a number')
-        assert(typeof stateFrequency === 'number', 'stateFrequency should be a number')
-        this.from           = from
-        this.to             = to
-        this.recursive      = recursive
-        this.overwrite      = overwrite
-        this.verbose        = verbose
-        this.ignoreErrors   = ignoreErrors
-        this.parallelJobs   = parallelJobs
-        this.stateFile      = state
-        this.stateFrequency = stateFrequency
-
-        this.stateCatchUp = false // Set true when we need to catch up to our saved state.
-        this.state        = {
+    constructor(options = {}) {
+        this.from           = options.from
+        this.to             = options.to
+        this.recursive      = options.recursive || false
+        this.overwrite      = options.overwrite || false
+        this.verbose        = options.verbose || false
+        this.ignoreErrors   = options.ignoreErrors || false
+        this.parallelJobs   = options.parallelJobs || 1
+        this.stateFile      = options.state
+        this.stateFrequency = options.stateFrequency || 100
+        this.fns            = {
+            readdir : promisify(options.readdir || fs.readdir),
+            copyFile: promisify(options.copyFile || fs.copyFile),
+        }
+        this.stateCatchUp   = false // Set true when we need to catch up to our saved state.
+        this.state          = {
             lastFile: null,
             counts  : {
                 directories: 0,
@@ -60,6 +49,13 @@ class Copy {
 
         this.pending = []
         this.errors  = []
+
+        assert.equal(typeof this.from, 'string', 'from should be a string')
+        assert.equal(typeof this.to, 'string', 'to should be a string')
+        assert.equal(typeof this.parallelJobs, 'number', 'parallelJobs should be a number')
+        assert.equal(typeof this.stateFrequency, 'number', 'stateFrequency should be a number')
+        assert.equal(typeof this.fns.readdir, 'function', 'readdir should be a function')
+        assert.equal(typeof this.fns.copyFile, 'function', 'copyFile should be a function')
     }
 
     async start() {
@@ -76,6 +72,8 @@ class Copy {
         while (this.pending.length > 0) {
             await sleep(10)
         }
+        await this.processJobErrors()
+        return this.state
     }
 
     async loadState() {
@@ -97,14 +95,14 @@ class Copy {
     }
 
     async processJobErrors() {
-        let err = this.errors.unshift()
+        let err = this.errors.shift()
         while (err) {
             if (this.ignoreErrors) {
                 console.error(err)
             } else {
                 throw err
             }
-            err = this.errors.unshift()
+            err = this.errors.shift()
         }
     }
 
@@ -143,7 +141,7 @@ class Copy {
                     throw err
                 }
             }
-            const files = await readdir(from)
+            const files = await this.fns.readdir(from)
             for (let file of files) {
                 await this.copy(path.join(from, file), path.join(to, file))
             }
@@ -212,11 +210,11 @@ class Copy {
         try {
             if (this.verbose) {
                 const start = Date.now()
-                await copyFile(from, to)
+                await this.fns.copyFile(from, to)
                 const speed = pretty(this.fromSize / ((Date.now() - start) / 1000))
                 this.log(`Copying: '${to}' (complete) (${speed}/s)`)
             } else {
-                await copyFile(from, to)
+                await this.fns.copyFile(from, to)
             }
             this.state.counts.files++
         } catch (err) {
