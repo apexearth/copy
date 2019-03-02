@@ -4,15 +4,21 @@
   "description": "Copy files via Node or command-line!",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "coverage": "nyc ava",
+    "test": "ava",
+    "test-watch": "ava --watch"
   },
   "keywords": [
     "copy",
     "files"
   ],
   "bin": {
-    "node-copy": "index.js"
+    "node-copy": "cli.js"
   },
+  "files": [
+    "index.js",
+    "cli.js"
+  ],
   "author": "apexearth@gmail.com",
   "license": "ISC",
   "repository": {
@@ -25,10 +31,17 @@
   "homepage": "https://github.com/apexearth/copy#readme",
   "dependencies": {
     "commander": "^2.19.0",
+    "mkdirp": "^0.5.1",
     "prettysize": "^2.0.0",
     "sleep-promise": "^8.0.1"
   },
   "publishConfig": {
     "access": "public"
+  },
+  "devDependencies": {
+    "ava": "^1.2.1",
+    "dir-compare": "^1.7.2",
+    "nyc": "^13.3.0",
+    "rimraf": "^2.6.3"
   }
 }

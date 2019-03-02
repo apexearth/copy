@@ -1,5 +1,3 @@
-#!/usr/bin/env node
-
 const fs          = require('fs')
 const path        = require('path')
 const {promisify} = require('util')
@@ -9,10 +7,10 @@ const readFile    = promisify(fs.readFile)
 const writeFile   = promisify(fs.writeFile)
 const stat        = promisify(fs.stat)
 const mkdir       = promisify(fs.mkdir)
-const program     = require('commander')
+const mkdirp      = promisify(require('mkdirp'))
 const pretty      = require('prettysize')
 const sleep       = require('sleep-promise')
-const {version}   = require('./package.json')
+const assert      = require('assert')
 
 /**
  * @param {string} from - Source copy path.
@@ -37,6 +35,10 @@ class Copy {
         state,
         stateFrequency = 100
     } = {}) {
+        assert(typeof from === 'string', 'from should be a string')
+        assert(typeof to === 'string', 'to should be a string')
+        assert(typeof parallelJobs === 'number', 'parallelJobs should be a number')
+        assert(typeof stateFrequency === 'number', 'stateFrequency should be a number')
         this.from           = from
         this.to             = to
         this.recursive      = recursive
@@ -62,7 +64,18 @@ class Copy {
 
     async start() {
         await this.loadState()
+        if ((await stat(this.from)).isDirectory()) {
+            await mkdirp(this.to)
+        } else {
+            const basedir = path.dirname(this.to)
+            await mkdirp(basedir)
+        }
         await this.copy(this.from, this.to)
+
+        // Wait for all jobs to complete.
+        while (this.pending.length > 0) {
+            await sleep(10)
+        }
     }
 
     async loadState() {
@@ -229,30 +242,3 @@ module.exports      = options => {
     return copy.start()
 }
 module.exports.Copy = Copy
-
-if (require.main === module) {
-    program
-        .version(version)
-        .arguments('<from> <to>')
-        .option('-r, --recursive', 'Copy recursively.')
-        .option('-o, --overwrite', 'Overwrite existing.')
-        .option('-v, --verbose', 'Verbose output.')
-        .option('-e, --ignore-errors', 'Ignore errors.')
-        .option('-p, --parallel-jobs <n>', 'Number of possible concurrent jobs.')
-        .option('-s, --state <file>', 'Save state to file for resume ability.')
-        .option('--state-frequency <n>', 'Save state frequency. (In <n> files saved.)')
-        .action((from, to) => {
-            (async () => {
-                program.from = from
-                program.to   = to
-                const copy   = new Copy(program)
-                try {
-                    await copy.start()
-                } catch (err) {
-                    console.error(err)
-                    process.exit(1)
-                }
-            })()
-        })
-        .parse(process.argv)
-}
