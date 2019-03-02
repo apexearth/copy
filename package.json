@@ -4,6 +4,7 @@
   "description": "Copy files via Node or command-line!",
   "main": "index.js",
   "scripts": {
+    "coveralls": "nyc report --reporter=text-lcov | coveralls",
     "coverage": "nyc ava",
     "test": "ava",
     "test-watch": "ava --watch"
