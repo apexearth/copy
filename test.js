@@ -85,3 +85,7 @@ test('throws when no args specified', async t => {
         // Ahh! No args!
     }))
 })
+
+test('import package', t => {
+    t.is(typeof require('.'), 'function')
+})
