@@ -2,6 +2,7 @@
 
 const {version} = require('./package.json')
 const program   = require('commander')
+const {Copy}    = require('./index')
 
 program
     .version(version)
