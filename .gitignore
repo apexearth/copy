@@ -1,3 +1,4 @@
 node_modules/
 test_files_target/
 *.state
+.nyc_output/
