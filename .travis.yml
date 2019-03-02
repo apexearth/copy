@@ -11,3 +11,5 @@ deploy:
   api_key: $NPM_TOKEN
   on:
     tags: true
+after_success:
+  nyc report --reporter=text-lcov | coveralls
