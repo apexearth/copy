@@ -40,6 +40,7 @@
   },
   "devDependencies": {
     "ava": "^1.2.1",
+    "coveralls": "^3.0.3",
     "dir-compare": "^1.7.2",
     "nyc": "^13.3.0",
     "rimraf": "^2.6.3"

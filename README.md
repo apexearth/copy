@@ -1,6 +1,7 @@
 # @apexearth/copy
 
 [![Travis Status](https://travis-ci.org/apexearth/copy.svg?branch=master)]((https://coveralls.io/github/apexearth/copy?branch=master))
+[![Coverage Status](https://coveralls.io/repos/github/apexearth/copy/badge.svg?branch=master)](https://coveralls.io/github/apexearth/copy?branch=master)
 ![NPM Downloads](https://img.shields.io/npm/dw/@apexearth/copy.svg?style=flat)
 [![install size](https://packagephobia.now.sh/badge?p=@apexearth/copy)](https://packagephobia.now.sh/result?p=@apexearth/copy)
 ![License](https://img.shields.io/npm/l/@apexearth/copy.svg?style=flat)
