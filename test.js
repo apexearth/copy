@@ -230,7 +230,7 @@ test('stat throw', async t => {
         },
     }))
     t.is(err.state.counts.directories, 2)
-    t.is(err.state.counts.files, 0)
+    t.is(err.state.counts.files, 1)
 })
 
 test('stat throw ignoreErrors', async t => {
