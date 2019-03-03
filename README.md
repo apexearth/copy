@@ -40,9 +40,10 @@ copy({
     ignoreErrors,   // Continue on errors.
     parallelJobs,   // Number of possible concurrent jobs.
     state,          // Save state for resume ability.
-    stateFrequency  // Save state frequency.
-    copyFile        // Supply your own copyFile function. (from, to, cb)
-    readdir         // Supply your own readdir function. (path, cb)
+    stateFrequency, // Save state frequency.
+    copyFile,       // Supply your own copyFile function. (from, to, cb)
+    readdir,        // Supply your own readdir function. (path, cb)
+    stat,           // Supply your own stat function. (path, cb)
 })
     .then(() => console.log('done'))
     .catch(err => console.error(err))

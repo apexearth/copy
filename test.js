@@ -17,6 +17,7 @@ const deleteIfExists = async to => {
         }
     }
 }
+
 /**
  * Node Tests
  */
@@ -24,24 +25,28 @@ test('copy single file', async t => {
     const from = 'test_files/file1'
     const to   = 'test_files_target/copy single file/file1'
     await deleteIfExists(to)
-    await copy({
+    const state = await copy({
         from,
         to,
     })
     const fromS = await stat(from)
     const toS   = await stat(to)
     t.is(fromS.size, toS.size)
+    t.is(state.counts.directories, 0)
+    t.is(state.counts.files, 1)
 })
 
 test('copy recursive', async t => {
     const from = 'test_files/'
     const to   = 'test_files_target/copy recursive/'
     await rimrafp(to)
-    await copy({
+    const state = await copy({
         from,
         to,
         recursive: true
     })
+    t.is(state.counts.directories, 4)
+    t.is(state.counts.files, 7)
 
     const comparison = await dircompare.compare(from, to, {compareSize: true})
     t.is(comparison.same, true)
@@ -51,7 +56,7 @@ test('copy recursive (all options)', async t => {
     const from = 'test_files/'
     const to   = 'test_files_target/copy recursive all options/'
     await rimrafp(to)
-    await copy({
+    const state = await copy({
         from,
         to,
         recursive     : true,
@@ -62,6 +67,8 @@ test('copy recursive (all options)', async t => {
         state         : 'test_files_target/copy recursive all options.state',
         stateFrequency: 100
     })
+    t.is(state.counts.directories, 4)
+    t.is(state.counts.files, 7)
 
     const comparison = await dircompare.compare(from, to, {compareSize: true})
     t.is(comparison.same, true)
@@ -109,14 +116,16 @@ test('does not implicitly overwrite', async t => {
 
 test('copyFile throw', async t => {
     const from = 'test_files/file1'
-    const to   = 'test_files_target/copy file throw/file1'
+    const to   = 'test_files_target/copyFile throw/file1'
     await deleteIfExists(to)
 
-    await t.throwsAsync(async () => await copy({
+    const err = await t.throwsAsync(async () => await copy({
         from,
         to,
-        copyFile: (from, to, done) => done(new Error('Ehh!')),
+        copyFile: (from, to, done) => done(new Error('copyFile throw')),
     }))
+    t.is(err.state.counts.directories, 0)
+    t.is(err.state.counts.files, 0)
 })
 
 test('copyFile throw ignoreErrors', async t => {
@@ -128,12 +137,32 @@ test('copyFile throw ignoreErrors', async t => {
         from,
         to,
         ignoreErrors: true,
-        copyFile    : (from, to, done) => done(new Error('Ehh!')),
+        copyFile    : (from, to, done) => done(new Error('copyFile throw ignoreErrors')),
     })
     t.is(state.counts.directories, 0)
     t.is(state.counts.files, 0)
 })
 
+test('copyFile throw recursive', async t => {
+    const from = 'test_files'
+    const to   = 'test_files_target/copyFile throw recursive'
+    await rimrafp(to)
+
+    const err = await t.throwsAsync(async () => await copy({
+        from,
+        to,
+        recursive: true,
+        copyFile : (from, to, done) => {
+            if (from.indexOf('file3') !== -1) {
+                done(new Error('copyFile throw recursive'))
+            } else {
+                fs.copyFile(from, to, done)
+            }
+        },
+    }))
+    t.is(err.state.counts.directories, 3)
+    t.is(err.state.counts.files, 2)
+})
 
 test('readdir throw', async t => {
     const from = 'test_files/'
@@ -144,6 +173,101 @@ test('readdir throw', async t => {
         from,
         to,
         recursive: true,
-        readdir: (path, done) => done(new Error('Ehh!')),
+        readdir  : (path, done) => done(new Error('readdir throw')),
     }))
+})
+
+test('readdir throw ignoreErrors', async t => {
+    const from = 'test_files/'
+    const to   = 'test_files_target/readdir throw ignoreErrors/'
+    await rimrafp(to)
+
+    const state = await copy({
+        from,
+        to,
+        recursive   : true,
+        ignoreErrors: true,
+        readdir     : (path, done) => {
+            if (path.indexOf('sub_directory2') !== -1) {
+                done(new Error('readdir throw ignoreErrors'))
+            } else {
+                fs.readdir(path, done)
+            }
+        },
+    })
+    t.is(state.counts.directories, 3)
+    t.is(state.counts.files, 3)
+})
+
+test('stat throw', async t => {
+    const from = 'test_files/'
+    const to   = 'test_files_target/stat throw/'
+    await rimrafp(to)
+
+    let err = await t.throwsAsync(async () => await copy({
+        from,
+        to,
+        recursive: true,
+        stat     : (path, done) => done(new Error('stat throw')),
+    }))
+    t.is(err.state.counts.directories, 0)
+    t.is(err.state.counts.files, 0)
+
+    let count = 0
+    err       = await t.throwsAsync(async () => await copy({
+        from,
+        to,
+        recursive: true,
+        stat     : (path, done) => {
+            if (count === 1 && path.indexOf('file2') !== -1) {
+                done(new Error('stat throw'))
+            } else {
+                if(path.indexOf('file2') !== -1) {
+                    count++
+                }
+                fs.stat(path, done)
+            }
+        },
+    }))
+    t.is(err.state.counts.directories, 2)
+    t.is(err.state.counts.files, 0)
+})
+
+test('stat throw ignoreErrors', async t => {
+    const from = 'test_files/'
+    const to   = 'test_files_target/stat throw ignoreErrors/'
+    await rimrafp(to)
+
+    let state = await copy({
+        from,
+        to,
+        recursive   : true,
+        ignoreErrors: true,
+        stat        : (path, done) => {
+            if (path.indexOf('sub_directory2') !== -1) {
+                done(new Error('stat throw ignoreErrors'))
+            } else {
+                fs.stat(path, done)
+            }
+        },
+    })
+    t.is(state.counts.directories, 2)
+    t.is(state.counts.files, 3)
+
+    await rimrafp(to)
+    state = await copy({
+        from,
+        to,
+        recursive   : true,
+        ignoreErrors: true,
+        stat        : (path, done) => {
+            if (path.indexOf('file2') !== -1) {
+                done(new Error('stat throw ignoreErrors'))
+            } else {
+                fs.stat(path, done)
+            }
+        },
+    })
+    t.is(state.counts.directories, 4)
+    t.is(state.counts.files, 6)
 })

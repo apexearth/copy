@@ -3,7 +3,6 @@ const path        = require('path')
 const {promisify} = require('util')
 const readFile    = promisify(fs.readFile)
 const writeFile   = promisify(fs.writeFile)
-const stat        = promisify(fs.stat)
 const mkdir       = promisify(fs.mkdir)
 const mkdirp      = promisify(require('mkdirp'))
 const pretty      = require('prettysize')
@@ -35,6 +34,7 @@ class Copy {
         this.stateFile      = options.state
         this.stateFrequency = options.stateFrequency || 100
         this.fns            = {
+            stat    : promisify(options.stat || fs.stat),
             readdir : promisify(options.readdir || fs.readdir),
             copyFile: promisify(options.copyFile || fs.copyFile),
         }
@@ -59,27 +59,32 @@ class Copy {
     }
 
     async start() {
-        await this.loadState()
-        if ((await stat(this.from)).isDirectory()) {
-            await mkdirp(this.to)
-        } else {
-            const basedir = path.dirname(this.to)
-            await mkdirp(basedir)
-        }
-        await this.copy(this.from, this.to)
+        try {
+            await this.loadState()
+            if ((await this.fns.stat(this.from)).isDirectory()) {
+                await mkdirp(this.to)
+            } else {
+                const basedir = path.dirname(this.to)
+                await mkdirp(basedir)
+            }
+            await this.copy(this.from, this.to)
 
-        // Wait for all jobs to complete.
-        while (this.pending.length > 0) {
-            await sleep(10)
+            // Wait for all jobs to complete.
+            while (this.pending.length > 0) {
+                await sleep(10)
+            }
+            await this.processJobErrors()
+            return this.state
+        } catch (err) {
+            err.state = this.state
+            throw err
         }
-        await this.processJobErrors()
-        return this.state
     }
 
     async loadState() {
         if (!this.stateFile) return
         try {
-            await stat(this.stateFile)
+            await this.fns.stat(this.stateFile)
             this.state        = JSON.parse(await readFile(this.stateFile))
             this.stateCatchUp = true
         } catch (err) {
@@ -112,7 +117,7 @@ class Copy {
             this.stateCatchUp = false // We're caught up -- yay!
         }
         try {
-            const s           = await stat(from)
+            const s           = await this.fns.stat(from)
             const isDirectory = s.isDirectory()
             if (isDirectory && this.recursive) {
                 await this.copyDirectory(from, to)
@@ -133,7 +138,7 @@ class Copy {
     async copyDirectory(from, to) {
         try {
             try {
-                await stat(to)
+                await this.fns.stat(to)
             } catch (err) {
                 if (err.code === 'ENOENT') {
                     await mkdir(to)
@@ -177,7 +182,7 @@ class Copy {
                 this.log(`Copying: '${to}' (start)`)
             }
             try {
-                await stat(to)
+                await this.fns.stat(to)
                 if (this.overwrite) {
                     await this.doCopy(from, to)
                 } else {
