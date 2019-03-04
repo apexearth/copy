@@ -109,7 +109,6 @@ test('copy recursive state resume', async t => {
         to,
         verbose       : true,
         recursive     : true,
-        parallelJobs  : 1,
         stateFrequency: 1,
         state         : stateFile,
     })
@@ -176,7 +175,7 @@ test('does not implicitly overwrite', async t => {
         to,
     })
     t.is(state.counts.directories, 0)
-    t.is(state.counts.files, 0)
+    t.is(state.counts.files, 1)
 
     const comparison = await dircompare.compare(from, to, {compareSize: true})
     t.is(comparison.same, false)
@@ -208,7 +207,7 @@ test('copyFile throw ignoreErrors', async t => {
         copyFile    : (from, to, done) => done(new Error('copyFile throw ignoreErrors')),
     })
     t.is(state.counts.directories, 0)
-    t.is(state.counts.files, 0)
+    t.is(state.counts.files, 1)
 })
 
 test('copyFile throw recursive', async t => {

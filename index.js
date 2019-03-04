@@ -25,27 +25,32 @@ const assert      = require('assert')
  */
 class Copy {
     constructor(options = {}) {
-        this.from           = path.normalize(options.from)
-        this.to             = path.normalize(options.to)
-        this.recursive      = options.recursive || false
-        this.overwrite      = options.overwrite || false
-        this.verbose        = options.verbose || false
-        this.ignoreErrors   = options.ignoreErrors || false
-        this.parallelJobs   = options.parallelJobs || 1
-        this.stateFile      = options.state
-        this.stateFrequency = options.stateFrequency || 100
-        this.fns            = {
+        this.from                = path.normalize(options.from)
+        this.to                  = path.normalize(options.to)
+        this.recursive           = options.recursive || false
+        this.overwrite           = options.overwrite || false
+        this.overwriteMismatches = options.overwriteMismatches || false
+        this.verbose             = options.verbose || false
+        this.ignoreErrors        = options.ignoreErrors || false
+        this.parallelJobs        = options.parallelJobs || 1
+        this.stateFile           = options.state
+        this.stateFrequency      = options.stateFrequency || 100
+        this.fns                 = {
             stat    : promisify(options.stat || fs.stat),
             readdir : promisify(options.readdir || fs.readdir),
             copyFile: promisify(options.copyFile || fs.copyFile),
         }
-        this.stateCatchUp   = false // Set true when we need to catch up to our saved state.
-        this.state          = {
+        this.stateCatchUp        = false // Set true when we need to catch up to our saved state.
+        this.state               = {
             lastFile: null,
             counts  : {
                 directories: 0,
                 files      : 0
             },
+        }
+        this.stat                = {
+            from: null,
+            to  : null,
         }
 
         this.pending = []
@@ -116,18 +121,18 @@ class Copy {
         if (this.stateCatchUp) {
             if (this.state.lastFile === from) {
                 this.stateCatchUp = false // We're caught up -- yay!
+                return
             } else if (!this.state.lastFile.startsWith(from)) {
                 return
             }
         }
         try {
             await this.processJobErrors()
-            const s           = await this.fns.stat(from)
-            const isDirectory = s.isDirectory()
+            this.stat.from    = await this.fns.stat(from)
+            const isDirectory = this.stat.from.isDirectory()
             if (isDirectory && this.recursive) {
                 await this.copyDirectory(from, to)
             } else if (!isDirectory) {
-                this.fromSize = s.size
                 await this.queueAction(() => this.copyFile(from, to))
             }
         } catch (err) {
@@ -181,17 +186,20 @@ class Copy {
     }
 
     async copyFile(from, to) {
-        if (this.verbose) {
-            this.log(`Copying: '${to}' (start)`)
-        }
+        this.log(`Copying: '${to}' (start)`)
         try {
-            await this.fns.stat(to)
+            this.stat.to = await this.fns.stat(to)
             if (this.overwrite) {
                 await this.doCopy(from, to)
-            } else {
-                if (this.verbose) {
-                    this.log(`Copying: '${to}' (skipped)`)
+            } else if (this.overwriteMismatches) {
+                if (this.stat.from.size !== this.stat.to.size ||
+                    this.stat.from.mtimeMs !== this.stat.to.mtimeMs) {
+                    await this.doCopy(from, to)
+                } else {
+                    this.log(`Copying: '${to}' (skipped, stats match)`)
                 }
+            } else {
+                this.log(`Copying: '${to}' (skipped)`)
             }
         } catch (err) {
             if (err.code === 'ENOENT') {
@@ -200,6 +208,8 @@ class Copy {
                 throw err
             }
         }
+        this.state.counts.files++
+        this.state.lastFile = from
         if (this.state.counts.files % this.stateFrequency === 0) {
             await this.saveState()
         }
@@ -210,13 +220,11 @@ class Copy {
             if (this.verbose) {
                 const start = Date.now()
                 await this.fns.copyFile(from, to)
-                const speed = pretty(this.fromSize / ((Date.now() - start) / 1000))
+                const speed = pretty(this.stat.from.size / ((Date.now() - start) / 1000))
                 this.log(`Copying: '${to}' (complete) (${speed}/s)`)
             } else {
                 await this.fns.copyFile(from, to)
             }
-            this.state.counts.files++
-            this.state.lastFile = from
         } catch (err) {
             if (this.ignoreErrors) {
                 this.log(`Copying: '${to}' (error)`)
