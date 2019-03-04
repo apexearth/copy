@@ -52,6 +52,73 @@ test('copy recursive', async t => {
     t.is(comparison.same, true)
 })
 
+test('copy recursive overwrite', async t => {
+    const from = 'test_files/'
+    const to   = 'test_files_target/copy recursive overwrite/'
+    await rimrafp(to)
+    let state = await copy({
+        from,
+        to,
+        recursive: true
+    })
+    t.is(state.counts.directories, 4)
+    t.is(state.counts.files, 7)
+
+    state = await copy({
+        from,
+        to,
+        recursive: true,
+        overwrite: true,
+    })
+    t.is(state.counts.directories, 4)
+    t.is(state.counts.files, 7)
+
+    const comparison = await dircompare.compare(from, to, {compareSize: true})
+    t.is(comparison.same, true)
+})
+
+test('copy recursive state resume', async t => {
+    const from      = 'test_files/'
+    const to        = 'test_files_target/copy recursive state resume/'
+    const stateFile = 'test_files_target/copy recursive state resume.state'
+    await deleteIfExists(stateFile)
+    await rimrafp(to)
+
+    const err = await t.throwsAsync(async () => await copy({
+        from,
+        to,
+        verbose       : true,
+        recursive     : true,
+        parallelJobs  : 1,
+        stateFrequency: 1,
+        state         : stateFile,
+        copyFile      : (from, to, done) => {
+            if (from.indexOf('file3') !== -1) {
+                done(new Error('copy recursive state resume'))
+            } else {
+                fs.copyFile(from, to, done)
+            }
+        },
+    }))
+    t.is(err.state.counts.directories, 3)
+    t.is(err.state.counts.files, 2)
+
+    const state = await copy({
+        from,
+        to,
+        verbose       : true,
+        recursive     : true,
+        parallelJobs  : 1,
+        stateFrequency: 1,
+        state         : stateFile,
+    })
+    t.is(state.counts.directories, 4)
+    t.is(state.counts.files, 7)
+
+    const comparison = await dircompare.compare(from, to, {compareSize: true})
+    t.is(comparison.same, true)
+})
+
 test('copy recursive (all options)', async t => {
     const from = 'test_files/'
     const to   = 'test_files_target/copy recursive all options/'
@@ -222,7 +289,7 @@ test('stat throw', async t => {
             if (count === 1 && path.indexOf('file2') !== -1) {
                 done(new Error('stat throw'))
             } else {
-                if(path.indexOf('file2') !== -1) {
+                if (path.indexOf('file2') !== -1) {
                     count++
                 }
                 fs.stat(path, done)

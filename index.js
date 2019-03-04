@@ -24,8 +24,8 @@ const assert      = require('assert')
  */
 class Copy {
     constructor(options = {}) {
-        this.from           = options.from
-        this.to             = options.to
+        this.from           = path.normalize(options.from)
+        this.to             = path.normalize(options.to)
         this.recursive      = options.recursive || false
         this.overwrite      = options.overwrite || false
         this.verbose        = options.verbose || false
@@ -112,11 +112,15 @@ class Copy {
     }
 
     async copy(from, to) {
-        if (this.stateCatchUp && !this.state.lastFile.startsWith(from)) return
-        if (this.stateCatchUp && this.state.lastFile === from) {
-            this.stateCatchUp = false // We're caught up -- yay!
+        if (this.stateCatchUp) {
+            if (this.state.lastFile === from) {
+                this.stateCatchUp = false // We're caught up -- yay!
+            } else if (!this.state.lastFile.startsWith(from)) {
+                return
+            }
         }
         try {
+            await this.processJobErrors()
             const s           = await this.fns.stat(from)
             const isDirectory = s.isDirectory()
             if (isDirectory && this.recursive) {
@@ -125,7 +129,6 @@ class Copy {
                 this.fromSize = s.size
                 await this.queueAction(() => this.copyFile(from, to))
             }
-            await this.processJobErrors()
         } catch (err) {
             if (this.ignoreErrors) {
                 console.error(err)
@@ -147,7 +150,7 @@ class Copy {
                 }
             }
             const files = await this.fns.readdir(from)
-            for (let file of files) {
+            for (let file of files.sort()) {
                 await this.copy(path.join(from, file), path.join(to, file))
             }
         } catch (err) {
@@ -177,37 +180,27 @@ class Copy {
     }
 
     async copyFile(from, to) {
+        if (this.verbose) {
+            this.log(`Copying: '${to}' (start)`)
+        }
         try {
-            if (this.verbose) {
-                this.log(`Copying: '${to}' (start)`)
-            }
-            try {
-                await this.fns.stat(to)
-                if (this.overwrite) {
-                    await this.doCopy(from, to)
-                } else {
-                    if (this.verbose) {
-                        this.log(`Copying: '${to}' (skipped)`)
-                    }
-                }
-            } catch (err) {
-                if (err.code === 'ENOENT') {
-                    await this.doCopy(from, to)
-                } else {
-                    throw err
+            await this.fns.stat(to)
+            if (this.overwrite) {
+                await this.doCopy(from, to)
+            } else {
+                if (this.verbose) {
+                    this.log(`Copying: '${to}' (skipped)`)
                 }
             }
         } catch (err) {
-            if (this.ignoreErrors) {
-                console.error(err)
+            if (err.code === 'ENOENT') {
+                await this.doCopy(from, to)
             } else {
                 throw err
             }
-        } finally {
-            this.state.lastFile = from
-            if (this.state.counts.files % this.stateFrequency === 0) {
-                await this.saveState()
-            }
+        }
+        if (this.state.counts.files % this.stateFrequency === 0) {
+            await this.saveState()
         }
     }
 
@@ -222,6 +215,7 @@ class Copy {
                 await this.fns.copyFile(from, to)
             }
             this.state.counts.files++
+            this.state.lastFile = from
         } catch (err) {
             if (this.ignoreErrors) {
                 this.log(`Copying: '${to}' (error)`)
