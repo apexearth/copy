@@ -21,6 +21,7 @@ const assert      = require('assert')
  * @param {string} stateFrequency - Save state frequency.
  * @param {string} copyFile - Supply your own copyFile function. (from, to, cb)
  * @param {string} readdir - Supply your own readdir function. (path, cb)
+ * @param {string} stat - Supply your own stat function. (path, cb)
  */
 class Copy {
     constructor(options = {}) {
