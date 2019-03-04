@@ -274,9 +274,8 @@ test('stat throw', async t => {
     let err = await t.throwsAsync(async () => await copy({
         from,
         to,
-        parallelJobs: 1,
-        recursive   : true,
-        stat        : (path, done) => done(new Error('stat throw')),
+        recursive: true,
+        stat     : (path, done) => done(new Error('stat throw')),
     }))
     t.is(err.state.counts.directories, 0)
     t.is(err.state.counts.files, 0)
@@ -285,8 +284,10 @@ test('stat throw', async t => {
     err       = await t.throwsAsync(async () => await copy({
         from,
         to,
-        recursive: true,
-        stat     : (path, done) => {
+        parallelJobs: 1,
+        verbose     : true,
+        recursive   : true,
+        stat        : (path, done) => {
             if (count === 1 && path.indexOf('file2') !== -1) {
                 done(new Error('stat throw'))
             } else {
