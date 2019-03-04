@@ -45,7 +45,8 @@ class Copy {
             lastFile: null,
             counts  : {
                 directories: 0,
-                files      : 0
+                files      : 0,
+                copies     : 0,
             },
         }
         this.stat                = {
@@ -108,11 +109,7 @@ class Copy {
     async processJobErrors() {
         let err = this.errors.shift()
         while (err) {
-            if (this.ignoreErrors) {
-                console.error(err)
-            } else {
-                throw err
-            }
+            this.handleError(err)
             err = this.errors.shift()
         }
     }
@@ -136,11 +133,7 @@ class Copy {
                 await this.queueAction(() => this.copyFile(from, to))
             }
         } catch (err) {
-            if (this.ignoreErrors) {
-                console.error(err)
-            } else {
-                throw err
-            }
+            this.handleError(err)
         }
     }
 
@@ -160,11 +153,7 @@ class Copy {
                 await this.copy(path.join(from, file), path.join(to, file))
             }
         } catch (err) {
-            if (this.ignoreErrors) {
-                console.error(err)
-            } else {
-                throw err
-            }
+            this.handleError(err)
         } finally {
             this.state.counts.directories++
         }
@@ -225,13 +214,10 @@ class Copy {
             } else {
                 await this.fns.copyFile(from, to)
             }
+            this.state.counts.copies++
         } catch (err) {
-            if (this.ignoreErrors) {
-                this.log(`Copying: '${to}' (error)`)
-                console.error(err)
-            } else {
-                throw err
-            }
+            this.log(`Copying: '${to}' (error)`)
+            this.handleError(err)
         }
     }
 
@@ -239,6 +225,14 @@ class Copy {
         if (this.verbose) {
             process.stdout.write(`Count: ${this.state.counts.directories}d ${this.state.counts.files}f `)
             console.log(`Jobs: ${this.pending.length} ${message}`)
+        }
+    }
+
+    handleError(err) {
+        if (this.ignoreErrors) {
+            console.error(err)
+        } else {
+            throw err
         }
     }
 }

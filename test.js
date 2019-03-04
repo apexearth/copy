@@ -35,6 +35,43 @@ test('copy single file', async t => {
     t.is(fromS.size, toS.size)
     t.is(state.counts.directories, 0)
     t.is(state.counts.files, 1)
+    t.is(state.counts.copies, 1)
+})
+
+test('copy single file overwriteMismatches', async t => {
+    const from = 'test_files/file1'
+    const path   = 'test_files_target/copy single file overwriteMismatches'
+    const to   = 'test_files_target/copy single file overwriteMismatches/file1'
+    await rimrafp(path)
+    fs.mkdirSync(path)
+    fs.writeFileSync(to, 'changed it!')
+    let fromS = await stat(from)
+    let toS   = await stat(to)
+    t.not(fromS.size, toS.size)
+
+    let state = await copy({
+        from,
+        to,
+        overwriteMismatches: true,
+    })
+    fromS       = await stat(from)
+    toS         = await stat(to)
+    t.is(fromS.size, toS.size)
+    t.is(state.counts.directories, 0)
+    t.is(state.counts.files, 1)
+    t.is(state.counts.copies, 1)
+
+    state = await copy({
+        from,
+        to,
+        overwriteMismatches: true,
+    })
+    fromS       = await stat(from)
+    toS         = await stat(to)
+    t.is(fromS.size, toS.size)
+    t.is(state.counts.directories, 0)
+    t.is(state.counts.files, 1)
+    t.is(state.counts.copies, 0)
 })
 
 test('copy recursive', async t => {
@@ -48,6 +85,7 @@ test('copy recursive', async t => {
     })
     t.is(state.counts.directories, 4)
     t.is(state.counts.files, 7)
+    t.is(state.counts.copies, 7)
 
     const comparison = await dircompare.compare(from, to, {compareSize: true})
     t.is(comparison.same, true)
@@ -64,6 +102,7 @@ test('copy recursive overwrite', async t => {
     })
     t.is(state.counts.directories, 4)
     t.is(state.counts.files, 7)
+    t.is(state.counts.copies, 7)
 
     state = await copy({
         from,
@@ -73,6 +112,7 @@ test('copy recursive overwrite', async t => {
     })
     t.is(state.counts.directories, 4)
     t.is(state.counts.files, 7)
+    t.is(state.counts.copies, 7)
 
     const comparison = await dircompare.compare(from, to, {compareSize: true})
     t.is(comparison.same, true)
@@ -103,6 +143,7 @@ test('copy recursive state resume', async t => {
     }))
     t.is(err.state.counts.directories, 3)
     t.is(err.state.counts.files, 2)
+    t.is(err.state.counts.copies, 2)
 
     const state = await copy({
         from,
@@ -114,6 +155,7 @@ test('copy recursive state resume', async t => {
     })
     t.is(state.counts.directories, 4)
     t.is(state.counts.files, 7)
+    t.is(state.counts.copies, 7)
 
     const comparison = await dircompare.compare(from, to, {compareSize: true})
     t.is(comparison.same, true)
@@ -136,6 +178,7 @@ test('copy recursive (all options)', async t => {
     })
     t.is(state.counts.directories, 4)
     t.is(state.counts.files, 7)
+    t.is(state.counts.copies, 7)
 
     const comparison = await dircompare.compare(from, to, {compareSize: true})
     t.is(comparison.same, true)
@@ -176,6 +219,7 @@ test('does not implicitly overwrite', async t => {
     })
     t.is(state.counts.directories, 0)
     t.is(state.counts.files, 1)
+    t.is(state.counts.copies, 0)
 
     const comparison = await dircompare.compare(from, to, {compareSize: true})
     t.is(comparison.same, false)
@@ -193,6 +237,7 @@ test('copyFile throw', async t => {
     }))
     t.is(err.state.counts.directories, 0)
     t.is(err.state.counts.files, 0)
+    t.is(err.state.counts.copies, 0)
 })
 
 test('copyFile throw ignoreErrors', async t => {
@@ -208,6 +253,7 @@ test('copyFile throw ignoreErrors', async t => {
     })
     t.is(state.counts.directories, 0)
     t.is(state.counts.files, 1)
+    t.is(state.counts.copies, 0)
 })
 
 test('copyFile throw recursive', async t => {
@@ -229,6 +275,7 @@ test('copyFile throw recursive', async t => {
     }))
     t.is(err.state.counts.directories, 3)
     t.is(err.state.counts.files, 2)
+    t.is(err.state.counts.copies, 2)
 })
 
 test('readdir throw', async t => {
@@ -264,6 +311,7 @@ test('readdir throw ignoreErrors', async t => {
     })
     t.is(state.counts.directories, 3)
     t.is(state.counts.files, 3)
+    t.is(state.counts.copies, 3)
 })
 
 test('stat throw', async t => {
@@ -279,6 +327,7 @@ test('stat throw', async t => {
     }))
     t.is(err.state.counts.directories, 0)
     t.is(err.state.counts.files, 0)
+    t.is(err.state.counts.copies, 0)
 
     let count = 0
     err       = await t.throwsAsync(async () => await copy({
@@ -302,6 +351,7 @@ test('stat throw', async t => {
     // This isn't ideal but low priority for fixing.
     t.is(err.state.counts.directories, majorVersion === 8 ? 1 : 2)
     t.is(err.state.counts.files, 1)
+    t.is(err.state.counts.copies, 1)
 })
 
 test('stat throw ignoreErrors', async t => {
@@ -325,6 +375,7 @@ test('stat throw ignoreErrors', async t => {
     })
     t.is(state.counts.directories, 2)
     t.is(state.counts.files, 3)
+    t.is(state.counts.copies, 3)
 
     await rimrafp(to)
     state = await copy({
@@ -342,4 +393,5 @@ test('stat throw ignoreErrors', async t => {
     })
     t.is(state.counts.directories, 4)
     t.is(state.counts.files, 6)
+    t.is(state.counts.copies, 6)
 })
