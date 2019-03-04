@@ -274,8 +274,9 @@ test('stat throw', async t => {
     let err = await t.throwsAsync(async () => await copy({
         from,
         to,
-        recursive: true,
-        stat     : (path, done) => done(new Error('stat throw')),
+        parallelJobs: 1,
+        recursive   : true,
+        stat        : (path, done) => done(new Error('stat throw')),
     }))
     t.is(err.state.counts.directories, 0)
     t.is(err.state.counts.files, 0)
@@ -308,6 +309,7 @@ test('stat throw ignoreErrors', async t => {
     let state = await copy({
         from,
         to,
+        parallelJobs: 1,
         recursive   : true,
         ignoreErrors: true,
         stat        : (path, done) => {
