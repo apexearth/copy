@@ -150,7 +150,7 @@ class Copy {
                 }
             }
             const files = await this.fns.readdir(from)
-            for (let file of files.sort()) {
+            for (let file of files) {
                 await this.copy(path.join(from, file), path.join(to, file))
             }
         } catch (err) {
