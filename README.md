@@ -32,18 +32,19 @@ Copy files via command line or Node.js.
 ```javascript
 const copy = require('@apexearth/copy')
 copy({
-    from,           // Source copy path.
-    to,             // Destination copy path.
-    recursive,      // Copy recursively.
-    overwrite,      // Overwrite existing file
-    verbose,        // Verbose output.
-    ignoreErrors,   // Continue on errors.
-    parallelJobs,   // Number of possible concurrent jobs.
-    state,          // Save state for resume ability.
-    stateFrequency, // Save state frequency.
-    copyFile,       // Supply your own copyFile function. (from, to, cb)
-    readdir,        // Supply your own readdir function. (path, cb)
-    stat,           // Supply your own stat function. (path, cb)
+    from,                // Source copy path.
+    to,                  // Destination copy path.
+    recursive,           // Copy recursively.
+    overwrite,           // Overwrite existing file
+    overwriteMismatches, // Overwrite if size mismatch or from modified date is more recent.
+    verbose,             // Verbose output.
+    ignoreErrors,        // Continue on errors.
+    parallelJobs,        // Number of possible concurrent jobs.
+    state,               // Save state for resume ability.
+    stateFrequency,      // Save state frequency.
+    copyFile,            // Supply your own copyFile function. (from, to, cb)
+    readdir,             // Supply your own readdir function. (path, cb)
+    stat,                // Supply your own stat function. (path, cb)
 })
     .then(() => console.log('done'))
     .catch(err => console.error(err))
@@ -52,16 +53,17 @@ copy({
 ### Command Line Usage
 
 ```shell
-Usage: copy [options] <from> <to>
+Usage: cli [options] <from> <to>
 
 Options:
   -V, --version            output the version number
   -r, --recursive          Copy recursively.
   -o, --overwrite          Overwrite existing.
+  --overwriteMismatches    Overwrite if size mismatch or from modified date is more recent.
   -v, --verbose            Verbose output.
   -e, --ignore-errors      Ignore errors.
-  -p, --parallel-jobs <n>  Number of possible concurrent jobs.
+  -p, --parallel-jobs <n>  Number of possible concurrent jobs. (default: 1)
   -s, --state <file>       Save state to file for resume ability.
-  --state-frequency <n>    Save state frequency. (In <n> files saved.)
+  --state-frequency <n>    Save state frequency. (In <n> files saved.) (default: 100)
   -h, --help               output usage information
 ```
