@@ -14,6 +14,7 @@ const assert      = require('assert')
  * @param {string} to - Destination copy path.
  * @param {boolean} recursive - Copy recursively.
  * @param {boolean} overwrite - Overwrite existing files.
+ * @param {boolean} overwriteMismatches - Overwrite if size mismatch or from modified date is more recent.
  * @param {boolean} verbose - Verbose output.
  * @param {boolean} ignoreErrors - Continue on errors.
  * @param {boolean} parallelJobs - Number of possible concurrent jobs.
@@ -61,6 +62,7 @@ class Copy {
         assert.equal(typeof this.to, 'string', 'to should be a string')
         assert.equal(typeof this.parallelJobs, 'number', 'parallelJobs should be a number')
         assert.equal(typeof this.stateFrequency, 'number', 'stateFrequency should be a number')
+        assert.equal(typeof this.fns.stat, 'function', 'stat should be a function')
         assert.equal(typeof this.fns.readdir, 'function', 'readdir should be a function')
         assert.equal(typeof this.fns.copyFile, 'function', 'copyFile should be a function')
     }
@@ -182,7 +184,7 @@ class Copy {
                 await this.doCopy(from, to)
             } else if (this.overwriteMismatches) {
                 if (this.stat.from.size !== this.stat.to.size ||
-                    this.stat.from.mtimeMs !== this.stat.to.mtimeMs) {
+                    this.stat.from.mtimeMs > this.stat.to.mtimeMs) {
                     await this.doCopy(from, to)
                 } else {
                     this.log(`Copying: '${to}' (skipped, stats match)`)
