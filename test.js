@@ -417,7 +417,7 @@ test.serial('copy recursive json', async t => {
 
     const comparison = await dircompare.compare(from, to, {compareSize: true})
     t.is(comparison.same, true)
-    t.is(output.length, 7)
+    t.is(output.length, 14)
     for (let json of output) {
         const object = JSON.parse(json)
         t.is(typeof object, 'object')
@@ -433,7 +433,7 @@ test.serial('copy recursive json', async t => {
         json        : false,
         ignoreErrors: true,
     })
-    t.is(output.length, 7)
+    t.is(output.length, 14)
 
     console.log = log
 })

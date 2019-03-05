@@ -210,7 +210,7 @@ class Copy {
 
     async doCopy(from, to) {
         try {
-            if (this.verbose) {
+            if (this.verbose || this.json) {
                 const start = Date.now()
                 await this.fns.copyFile(from, to)
                 const speed = this.stat.from.size / ((Date.now() - start) / 1000)
