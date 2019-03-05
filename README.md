@@ -59,7 +59,7 @@ Options:
   -V, --version            output the version number
   -r, --recursive          Copy recursively.
   -o, --overwrite          Overwrite existing.
-  --overwriteMismatches    Overwrite if size mismatch or from modified date is more recent.
+  --overwrite-mismatches   Overwrite if size mismatch or from modified date is more recent.
   -v, --verbose            Verbose output.
   -e, --ignore-errors      Ignore errors.
   -p, --parallel-jobs <n>  Number of possible concurrent jobs. (default: 1)

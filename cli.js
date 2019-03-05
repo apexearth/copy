@@ -9,7 +9,7 @@ program
     .arguments('<from> <to>')
     .option('-r, --recursive', 'Copy recursively.')
     .option('-o, --overwrite', 'Overwrite existing.')
-    .option('--overwriteMismatches', 'Overwrite if size mismatch or from modified date is more recent.')
+    .option('--overwrite-mismatches', 'Overwrite if size mismatch or from modified date is more recent.')
     .option('-v, --verbose', 'Verbose output.')
     .option('-j, --json', 'JSON output.')
     .option('-e, --ignore-errors', 'Ignore errors.')
