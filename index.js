@@ -16,6 +16,7 @@ const assert      = require('assert')
  * @param {boolean} overwrite - Overwrite existing files.
  * @param {boolean} overwriteMismatches - Overwrite if size mismatch or from modified date is more recent.
  * @param {boolean} verbose - Verbose output.
+ * @param {boolean} json - JSON output. (also sets verbose to true)
  * @param {boolean} ignoreErrors - Continue on errors.
  * @param {boolean} parallelJobs - Number of possible concurrent jobs.
  * @param {string} state - Save state for resume ability.
@@ -32,6 +33,7 @@ class Copy {
         this.overwrite           = options.overwrite || false
         this.overwriteMismatches = options.overwriteMismatches || false
         this.verbose             = options.verbose || false
+        this.json                = options.json || false
         this.ignoreErrors        = options.ignoreErrors || false
         this.parallelJobs        = options.parallelJobs || 1
         this.stateFile           = options.state
@@ -177,7 +179,7 @@ class Copy {
     }
 
     async copyFile(from, to) {
-        this.log(`Copying: '${to}' (start)`)
+        this.logCopyAction(to, 'start')
         try {
             this.stat.to = await this.fns.stat(to)
             if (this.overwrite) {
@@ -187,10 +189,10 @@ class Copy {
                     this.stat.from.mtimeMs > this.stat.to.mtimeMs) {
                     await this.doCopy(from, to)
                 } else {
-                    this.log(`Copying: '${to}' (skipped, stats match)`)
+                    this.logCopyAction(to, 'skipped, stats match')
                 }
             } else {
-                this.log(`Copying: '${to}' (skipped)`)
+                this.logCopyAction(to, 'skipped')
             }
         } catch (err) {
             if (err.code === 'ENOENT') {
@@ -211,22 +213,41 @@ class Copy {
             if (this.verbose) {
                 const start = Date.now()
                 await this.fns.copyFile(from, to)
-                const speed = pretty(this.stat.from.size / ((Date.now() - start) / 1000))
-                this.log(`Copying: '${to}' (complete) (${speed}/s)`)
+                const speed = this.stat.from.size / ((Date.now() - start) / 1000)
+                this.logCopyAction(to, 'complete', speed)
             } else {
                 await this.fns.copyFile(from, to)
             }
             this.state.counts.copies++
         } catch (err) {
-            this.log(`Copying: '${to}' (error)`)
+            this.logCopyAction(to, 'error')
             this.handleError(err)
         }
     }
 
     log(message) {
-        if (this.verbose) {
-            process.stdout.write(`Count: ${this.state.counts.directories}d ${this.state.counts.files}f `)
-            console.log(`Jobs: ${this.pending.length} ${message}`)
+        if (this.verbose || this.json) {
+            if (this.json) {
+                console.log(JSON.stringify({message, state: this.state}))
+            } else {
+                console.log(`Count: ${this.state.counts.directories}d ${this.state.counts.files}f Jobs: ${this.pending.length} ${message}`)
+            }
+        }
+    }
+
+    logCopyAction(file, action, speed) {
+        if (this.json) {
+            let message = {file, action}
+            if (speed) {
+                message.speed = speed
+            }
+            this.log(message)
+        } else {
+            let message = `Copying: '${file}' (${action})`
+            if (speed !== undefined) {
+                message += ` (${pretty(speed)}/s)`
+            }
+            this.log(message)
         }
     }
 

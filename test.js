@@ -40,7 +40,7 @@ test('copy single file', async t => {
 
 test('copy single file overwriteMismatches', async t => {
     const from = 'test_files/file1'
-    const path   = 'test_files_target/copy single file overwriteMismatches'
+    const path = 'test_files_target/copy single file overwriteMismatches'
     const to   = 'test_files_target/copy single file overwriteMismatches/file1'
     await rimrafp(path)
     fs.mkdirSync(path)
@@ -54,8 +54,8 @@ test('copy single file overwriteMismatches', async t => {
         to,
         overwriteMismatches: true,
     })
-    fromS       = await stat(from)
-    toS         = await stat(to)
+    fromS     = await stat(from)
+    toS       = await stat(to)
     t.is(fromS.size, toS.size)
     t.is(state.counts.directories, 0)
     t.is(state.counts.files, 1)
@@ -66,8 +66,8 @@ test('copy single file overwriteMismatches', async t => {
         to,
         overwriteMismatches: true,
     })
-    fromS       = await stat(from)
-    toS         = await stat(to)
+    fromS = await stat(from)
+    toS   = await stat(to)
     t.is(fromS.size, toS.size)
     t.is(state.counts.directories, 0)
     t.is(state.counts.files, 1)
@@ -161,7 +161,7 @@ test('copy recursive state resume', async t => {
     t.is(comparison.same, true)
 })
 
-test('copy recursive (all options)', async t => {
+test('copy recursive (multiple options)', async t => {
     const from = 'test_files/'
     const to   = 'test_files_target/copy recursive all options/'
     await rimrafp(to)
@@ -394,4 +394,46 @@ test('stat throw ignoreErrors', async t => {
     t.is(state.counts.directories, 4)
     t.is(state.counts.files, 6)
     t.is(state.counts.copies, 6)
+})
+
+test.serial('copy recursive json', async t => {
+    let output  = []
+    const log   = console.log
+    console.log = message => output.push(message)
+
+    const from = 'test_files/'
+    const to   = 'test_files_target/copy recursive json/'
+    await rimrafp(to)
+    const state = await copy({
+        from,
+        to,
+        recursive   : true,
+        json        : true,
+        ignoreErrors: true,
+    })
+    t.is(state.counts.directories, 4)
+    t.is(state.counts.files, 7)
+    t.is(state.counts.copies, 7)
+
+    const comparison = await dircompare.compare(from, to, {compareSize: true})
+    t.is(comparison.same, true)
+    t.is(output.length, 7)
+    for (let json of output) {
+        const object = JSON.parse(json)
+        t.is(typeof object, 'object')
+        t.is(typeof object.message, 'object')
+        t.is(typeof object.state, 'object')
+    }
+
+    await rimrafp(to)
+    await copy({
+        from,
+        to,
+        recursive   : true,
+        json        : false,
+        ignoreErrors: true,
+    })
+    t.is(output.length, 7)
+
+    console.log = log
 })

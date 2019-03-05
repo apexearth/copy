@@ -11,6 +11,7 @@ program
     .option('-o, --overwrite', 'Overwrite existing.')
     .option('--overwriteMismatches', 'Overwrite if size mismatch or from modified date is more recent.')
     .option('-v, --verbose', 'Verbose output.')
+    .option('-j, --json', 'JSON output.')
     .option('-e, --ignore-errors', 'Ignore errors.')
     .option('-p, --parallel-jobs <n>', 'Number of possible concurrent jobs.', 1)
     .option('-s, --state <file>', 'Save state to file for resume ability.')
