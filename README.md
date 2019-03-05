@@ -52,7 +52,7 @@ copy({
 
 ### Command Line Usage
 
-```shell
+```
 Usage: cli [options] <from> <to>
 
 Options:
