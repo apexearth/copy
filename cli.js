@@ -5,6 +5,7 @@ const program   = require('commander')
 const {Copy}    = require('./index')
 
 program
+    .name('node-copy')
     .version(version)
     .arguments('<from> <to>')
     .option('-r, --recursive', 'Copy recursively.')

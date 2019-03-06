@@ -53,7 +53,7 @@ copy({
 ### Command Line Usage
 
 ```
-Usage: cli [options] <from> <to>
+Usage: node-copy [options] <from> <to>
 
 Options:
   -V, --version            output the version number
