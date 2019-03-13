@@ -141,7 +141,7 @@ class Copy {
                 if (!catchingUp) {
                     this.state.wip.push(from)
                 }
-                await this.queueAction(() => this.copyFile(from, to))
+                await this.queueAction(() => this.copyFile(from, to, this.stat.from))
                 if (this.state.counts.files % this.stateFrequency === 0) {
                     await this.saveState()
                 }
@@ -188,15 +188,25 @@ class Copy {
         action().catch(err => this.errors.push(err))
     }
 
-    async copyFile(from, to) {
+    async copyFile(from, to, fromStat) {
         this.logCopyAction(to, 'start')
         try {
             this.stat.to = await this.fns.stat(to)
             if (this.overwrite) {
                 await this.doCopy(from, to)
             } else if (this.overwriteMismatches) {
-                if (this.stat.from.size !== this.stat.to.size ||
-                    this.stat.from.mtimeMs > this.stat.to.mtimeMs) {
+                if (fromStat.size !== this.stat.to.size ||
+                    fromStat.mtimeMs > this.stat.to.mtimeMs) {
+                    this.logCopyAction(to, 'stats mismatch', {
+                        fromStat: {
+                            size   : fromStat.size,
+                            mtimeMs: fromStat.mtimeMs,
+                        },
+                        toStat  : {
+                            size   : this.stat.to.size,
+                            mtimeMs: this.stat.to.mtimeMs,
+                        },
+                    })
                     await this.doCopy(from, to)
                 } else {
                     this.logCopyAction(to, 'skipped, stats match')
@@ -222,7 +232,7 @@ class Copy {
                 const start = Date.now()
                 await this.fns.copyFile(from, to)
                 const speed = this.stat.from.size / ((Date.now() - start) / 1000)
-                this.logCopyAction(to, 'complete', speed)
+                this.logCopyAction(to, 'complete', {speed})
             } else {
                 await this.fns.copyFile(from, to)
             }
@@ -252,17 +262,17 @@ class Copy {
         }
     }
 
-    logCopyAction(file, action, speed) {
+    logCopyAction(file, action, extra) {
         if (this.json) {
             let message = {file, action}
-            if (speed) {
-                message.speed = speed
+            if (extra) {
+                Object.assign(message, extra)
             }
             this.log(message)
         } else {
             let message = `Copying: '${file}' (${action})`
-            if (speed !== undefined) {
-                message += ` (${pretty(speed)}/s)`
+            if (extra && extra.speed !== undefined) {
+                message += ` (${pretty(extra.speed)}/s)`
             }
             this.log(message)
         }
