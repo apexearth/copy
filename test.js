@@ -1,6 +1,7 @@
 import test from 'ava'
 import copy from '.'
 import fs from 'fs'
+import path from 'path'
 import dircompare from 'dir-compare'
 import rimraf from 'rimraf'
 import {promisify} from 'util'
@@ -141,7 +142,7 @@ test('copy recursive state resume', async t => {
             }
         },
     }))
-    t.is(err.state.counts.directories, 3)
+    t.is(err.state.counts.directories, 2)
     t.is(err.state.counts.files, 2)
     t.is(err.state.counts.copies, 2)
 
@@ -161,9 +162,90 @@ test('copy recursive state resume', async t => {
     t.is(comparison.same, true)
 })
 
+test('copy recursive state resume 2', async t => {
+    const from      = 'test_files/'
+    const to        = 'test_files_target/copy recursive state resume 2/'
+    const stateFile = 'test_files_target/copy recursive state resume 2.state'
+    await deleteIfExists(stateFile)
+    await rimrafp(to)
+    // Setup an in progress directory
+    await copy({
+        from,
+        to,
+        recursive: true,
+    })
+    const wip = [
+        'test_files/file2',
+        'test_files/sub_directory1/file3',
+        'test_files/sub_directory2/file4',
+        'test_files/sub_directory2/sub_directory3/file6',
+        'test_files/sub_directory2/sub_directory3/file7',
+    ]
+    for (let ip of wip) {
+        await deleteIfExists(ip.replace(from, to))
+    }
+    await rimrafp(`${to}sub_directory2/sub_directory3`)
+    fs.writeFileSync(stateFile, JSON.stringify({
+        wip   : wip.map(path.normalize),
+        counts: {
+            directories: 3,
+            files      : 2,
+            copies     : 2,
+        }
+    }, null, 2))
+
+    // Resume from an in progress state.
+    const state = await copy({
+        from,
+        to,
+        verbose       : true,
+        recursive     : true,
+        stateFrequency: 1,
+        state         : stateFile,
+    })
+    t.is(state.counts.directories, 7) // TODO: Not entirely correct since we've gone through some folders twice.
+    t.is(state.counts.files, 7)
+    t.is(state.counts.copies, 7)
+
+    const comparison = await dircompare.compare(from, to, {compareSize: true})
+    t.is(comparison.same, true)
+})
+
+test('fail when state wip not found', async t => {
+    const from      = 'test_files/'
+    const to        = 'test_files_target/fail when state wip not found/'
+    const stateFile = 'test_files_target/fail when state wip not found.state'
+    const wip       = [
+        'totally/worthless/junk',
+    ]
+    fs.writeFileSync(stateFile, JSON.stringify({
+        wip   : wip.map(path.normalize),
+        counts: {
+            directories: 3,
+            files      : 3,
+            copies     : 3,
+        }
+    }))
+
+    // Resume from an in progress state.
+    await t.throwsAsync(async () => await copy({
+        from,
+        to,
+        verbose       : true,
+        recursive     : true,
+        stateFrequency: 1,
+        state         : stateFile,
+    }))
+
+    const comparison = await dircompare.compare(from, to, {compareSize: true})
+    t.is(comparison.same, false)
+})
+
 test('copy recursive (multiple options)', async t => {
-    const from = 'test_files/'
-    const to   = 'test_files_target/copy recursive all options/'
+    const from      = 'test_files/'
+    const to        = 'test_files_target/copy recursive multiple options/'
+    const stateFile = 'test_files_target/copy recursive multiple options.state'
+    await deleteIfExists(stateFile)
     await rimrafp(to)
     const state = await copy({
         from,
@@ -173,7 +255,7 @@ test('copy recursive (multiple options)', async t => {
         verbose       : true,
         ignoreErrors  : true,
         parallelJobs  : 4,
-        state         : 'test_files_target/copy recursive all options.state',
+        state         : stateFile,
         stateFrequency: 100
     })
     t.is(state.counts.directories, 4)
@@ -434,6 +516,34 @@ test.serial('copy recursive json', async t => {
         ignoreErrors: true,
     })
     t.is(output.length, 14)
+
+    await rimrafp(to)
+    await copy({
+        from,
+        to,
+        recursive   : true,
+        json        : 'pretty',
+        ignoreErrors: true,
+    })
+    t.is(output.length, 28)
+    t.is(output[14],
+        '{\n' +
+        '  "message": {\n' +
+        '    "file": "test_files_target\\\\copy recursive json\\\\file1",\n' +
+        '    "action": "start"\n' +
+        '  },\n' +
+        '  "state": {\n' +
+        '    "wip": [\n' +
+        '      "test_files\\\\file1"\n' +
+        '    ],\n' +
+        '    "counts": {\n' +
+        '      "directories": 0,\n' +
+        '      "files": 0,\n' +
+        '      "copies": 0\n' +
+        '    }\n' +
+        '  }\n' +
+        '}\n'
+    )
 
     console.log = log
 })

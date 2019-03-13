@@ -16,7 +16,7 @@ const assert      = require('assert')
  * @param {boolean} overwrite - Overwrite existing files.
  * @param {boolean} overwriteMismatches - Overwrite if size mismatch or from modified date is more recent.
  * @param {boolean} verbose - Verbose output.
- * @param {boolean} json - JSON output. (also sets verbose to true)
+ * @param {boolean} json - JSON output. (options: true, pretty)
  * @param {boolean} ignoreErrors - Continue on errors.
  * @param {boolean} parallelJobs - Number of possible concurrent jobs.
  * @param {string} state - Save state for resume ability.
@@ -43,10 +43,10 @@ class Copy {
             readdir : promisify(options.readdir || fs.readdir),
             copyFile: promisify(options.copyFile || fs.copyFile),
         }
-        this.stateCatchUp        = false // Set true when we need to catch up to our saved state.
+        this.stateCatchUp        = 0 // Set true when we need to catch up to our saved state.
         this.state               = {
-            lastFile: null,
-            counts  : {
+            wip   : [],
+            counts: {
                 directories: 0,
                 files      : 0,
                 copies     : 0,
@@ -85,6 +85,10 @@ class Copy {
                 await sleep(10)
             }
             await this.processJobErrors()
+            await this.saveState()
+            if (this.state.wip.length) {
+                throw new Error('Incomplete `wip` found. Copy likely incomplete.')
+            }
             return this.state
         } catch (err) {
             err.state = this.state
@@ -97,7 +101,7 @@ class Copy {
         try {
             await this.fns.stat(this.stateFile)
             this.state        = JSON.parse(await readFile(this.stateFile))
-            this.stateCatchUp = true
+            this.stateCatchUp = this.state.wip.length
         } catch (err) {
             if (err.code !== 'ENOENT') {
                 throw err
@@ -107,7 +111,7 @@ class Copy {
 
     async saveState() {
         if (!this.stateFile) return
-        await writeFile(this.stateFile, JSON.stringify(this.state))
+        await writeFile(this.stateFile, JSON.stringify(this.state, null, 2))
     }
 
     async processJobErrors() {
@@ -119,11 +123,11 @@ class Copy {
     }
 
     async copy(from, to) {
-        if (this.stateCatchUp) {
-            if (this.state.lastFile === from) {
-                this.stateCatchUp = false // We're caught up -- yay!
-                return
-            } else if (!this.state.lastFile.startsWith(from)) {
+        let catchingUp = this.stateCatchUp > 0
+        if (catchingUp) {
+            if (this.state.wip.includes(from)) {
+                this.stateCatchUp -= 1 // Found one, decrease our catch up count.
+            } else if (!this.state.wip.some(wipFile => wipFile.startsWith(from))) {
                 return
             }
         }
@@ -134,7 +138,13 @@ class Copy {
             if (isDirectory && this.recursive) {
                 await this.copyDirectory(from, to)
             } else if (!isDirectory) {
+                if (!catchingUp) {
+                    this.state.wip.push(from)
+                }
                 await this.queueAction(() => this.copyFile(from, to))
+                if (this.state.counts.files % this.stateFrequency === 0) {
+                    await this.saveState()
+                }
             }
         } catch (err) {
             this.handleError(err)
@@ -194,18 +204,16 @@ class Copy {
             } else {
                 this.logCopyAction(to, 'skipped')
             }
+            this.removeWip(from)
         } catch (err) {
             if (err.code === 'ENOENT') {
                 await this.doCopy(from, to)
+                this.removeWip(from)
             } else {
                 throw err
             }
         }
         this.state.counts.files++
-        this.state.lastFile = from
-        if (this.state.counts.files % this.stateFrequency === 0) {
-            await this.saveState()
-        }
     }
 
     async doCopy(from, to) {
@@ -225,9 +233,18 @@ class Copy {
         }
     }
 
+    removeWip(from) {
+        let wipIndex = this.state.wip.indexOf(from)
+        if (wipIndex >= 0) {
+            this.state.wip.splice(wipIndex, 1)
+        }
+    }
+
     log(message) {
         if (this.verbose || this.json) {
-            if (this.json) {
+            if (this.json === 'pretty') {
+                console.log(JSON.stringify({message, state: this.state}, null, 2) + '\n') // Double our line endings for some clear delimitation.
+            } else if (this.json) {
                 console.log(JSON.stringify({message, state: this.state}))
             } else {
                 console.log(`Count: ${this.state.counts.directories}d ${this.state.counts.files}f Jobs: ${this.pending.length} ${message}`)

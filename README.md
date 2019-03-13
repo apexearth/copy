@@ -38,6 +38,7 @@ copy({
     overwrite,           // Overwrite existing file
     overwriteMismatches, // Overwrite if size mismatch or from modified date is more recent.
     verbose,             // Verbose output.
+    json,                // JSON output. (options: true, "pretty")
     ignoreErrors,        // Continue on errors.
     parallelJobs,        // Number of possible concurrent jobs.
     state,               // Save state for resume ability.
@@ -61,6 +62,7 @@ Options:
   -o, --overwrite          Overwrite existing.
   --overwrite-mismatches   Overwrite if size mismatch or from modified date is more recent.
   -v, --verbose            Verbose output.
+  -j, --json=<format>      JSON output. (options: true, pretty)
   -e, --ignore-errors      Ignore errors.
   -p, --parallel-jobs <n>  Number of possible concurrent jobs. (default: 1)
   -s, --state <file>       Save state to file for resume ability.
