@@ -526,24 +526,7 @@ test.serial('copy recursive json', async t => {
         ignoreErrors: true,
     })
     t.is(output.length, 28)
-    t.is(output[14],
-        '{\n' +
-        '  "message": {\n' +
-        '    "file": "test_files_target\\\\copy recursive json\\\\file1",\n' +
-        '    "action": "start"\n' +
-        '  },\n' +
-        '  "state": {\n' +
-        '    "wip": [\n' +
-        '      "test_files\\\\file1"\n' +
-        '    ],\n' +
-        '    "counts": {\n' +
-        '      "directories": 0,\n' +
-        '      "files": 0,\n' +
-        '      "copies": 0\n' +
-        '    }\n' +
-        '  }\n' +
-        '}\n'
-    )
+    t.is(output[14], JSON.stringify(JSON.parse(output[14]), null, 2) + '\n')
 
     console.log = log
 })
