@@ -12,7 +12,7 @@ program
     .option('-o, --overwrite', 'Overwrite existing.')
     .option('--overwrite-mismatches', 'Overwrite if size mismatch or from modified date is more recent.')
     .option('-v, --verbose', 'Verbose output.')
-    .option('-j, --json=<format>', 'JSON output. (options: true, pretty)')
+    .option('-j, --json <format>', 'JSON output. (options: true, pretty)')
     .option('-e, --ignore-errors', 'Ignore errors.')
     .option('-p, --parallel-jobs <n>', 'Number of possible concurrent jobs.', 1)
     .option('-s, --state <file>', 'Save state to file for resume ability.')
