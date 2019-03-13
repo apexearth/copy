@@ -526,6 +526,7 @@ test.serial('copy recursive json', async t => {
         ignoreErrors: true,
     })
     t.is(output.length, 28)
+    t.not(output[13], JSON.stringify(JSON.parse(output[13]), null, 2) + '\n')
     t.is(output[14], JSON.stringify(JSON.parse(output[14]), null, 2) + '\n')
 
     console.log = log
