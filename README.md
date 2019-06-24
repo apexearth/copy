@@ -57,15 +57,16 @@ copy({
 Usage: node-copy [options] <from> <to>
 
 Options:
-  -V, --version            output the version number
-  -r, --recursive          Copy recursively.
-  -o, --overwrite          Overwrite existing.
-  --overwrite-mismatches   Overwrite if size mismatch or from modified date is more recent.
-  -v, --verbose            Verbose output.
-  -j, --json <format>      JSON output. (options: true, pretty)
-  -e, --ignore-errors      Ignore errors.
-  -p, --parallel-jobs <n>  Number of possible concurrent jobs. (default: 1)
-  -s, --state <file>       Save state to file for resume ability.
-  --state-frequency <n>    Save state frequency. (In <n> files saved.) (default: 100)
-  -h, --help               output usage information
+  -V, --version               output the version number
+  -r, --recursive             Copy recursively.
+  -o, --overwrite             Overwrite existing.
+  --overwrite-mismatches      Overwrite if size mismatch or from modified date is more recent.
+  -v, --verbose               Verbose output.
+  -j, --json <format>         JSON output. (options: true, pretty)
+  -e, --ignore-errors         Ignore errors.
+  -p, --parallel-jobs <n>     Number of possible concurrent jobs. (default: 1)
+  -s, --state <file>          Save state to file for resume ability.
+  --state-frequency <n>       Save state frequency. (In <n> files saved.) (default: 100)
+  -a, --archive <state-file>  Attempt to copy as much as possible using options `-mervs <state-file> -p 4` with restart capabilities.
+  -h, --help                  output usage information
 ```
