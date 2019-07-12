@@ -46,10 +46,10 @@
   },
   "devDependencies": {
     "ava": "^1.2.1",
-    "eslint": "^5.15.0",
     "coveralls": "^3.0.3",
     "dir-compare": "^1.7.2",
-    "nyc": "^13.3.0",
+    "eslint": "^5.15.0",
+    "nyc": "^14.1.1",
     "rimraf": "^2.6.3"
   }
 }
