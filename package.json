@@ -4,6 +4,8 @@
   "description": "Copy files via Node or command-line!",
   "main": "index.js",
   "scripts": {
+    "preversion": "npm test",
+    "postversion": "git push --tags && git push",
     "coveralls": "nyc report --reporter=text-lcov | coveralls",
     "test": "npm run lint && nyc ava",
     "lint": "eslint *.js",
