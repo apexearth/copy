@@ -52,10 +52,6 @@ class Copy {
                 copies     : 0,
             },
         }
-        this.stat                = {
-            from: null,
-            to  : null,
-        }
 
         this.pending = []
         this.errors  = []
@@ -133,15 +129,15 @@ class Copy {
         }
         try {
             await this.processJobErrors()
-            this.stat.from    = await this.fns.stat(from)
-            const isDirectory = this.stat.from.isDirectory()
+            const fromStat    = await this.fns.stat(from)
+            const isDirectory = fromStat.isDirectory()
             if (isDirectory && this.recursive) {
                 await this.copyDirectory(from, to)
             } else if (!isDirectory) {
                 if (!catchingUp) {
                     this.state.wip.push(from)
                 }
-                await this.queueAction(() => this.copyFile(from, to, this.stat.from))
+                await this.queueAction(() => this.copyFile(from, to, fromStat))
                 if (this.state.counts.files % this.stateFrequency === 0) {
                     await this.saveState()
                 }
@@ -191,23 +187,23 @@ class Copy {
     async copyFile(from, to, fromStat) {
         this.logCopyAction(to, 'start')
         try {
-            this.stat.to = await this.fns.stat(to)
+            const toStat = await this.fns.stat(to)
             if (this.overwrite) {
-                await this.doCopy(from, to)
+                await this.doCopy(from, to, fromStat)
             } else if (this.overwriteMismatches) {
-                if (fromStat.size !== this.stat.to.size ||
-                    fromStat.mtimeMs > this.stat.to.mtimeMs) {
+                if (fromStat.size !== toStat.size ||
+                    fromStat.mtimeMs > toStat.mtimeMs) {
                     this.logCopyAction(to, 'stats mismatch', {
                         fromStat: {
                             size   : fromStat.size,
                             mtimeMs: fromStat.mtimeMs,
                         },
                         toStat  : {
-                            size   : this.stat.to.size,
-                            mtimeMs: this.stat.to.mtimeMs,
+                            size   : toStat.size,
+                            mtimeMs: toStat.mtimeMs,
                         },
                     })
-                    await this.doCopy(from, to)
+                    await this.doCopy(from, to, fromStat)
                 } else {
                     this.logCopyAction(to, 'skipped, stats match')
                 }
@@ -217,7 +213,7 @@ class Copy {
             this.removeWip(from)
         } catch (err) {
             if (err.code === 'ENOENT') {
-                await this.doCopy(from, to)
+                await this.doCopy(from, to, fromStat)
                 this.removeWip(from)
             } else {
                 throw err
@@ -226,12 +222,12 @@ class Copy {
         this.state.counts.files++
     }
 
-    async doCopy(from, to) {
+    async doCopy(from, to, fromStat) {
         try {
             if (this.verbose || this.json) {
                 const start = Date.now()
                 await this.fns.copyFile(from, to)
-                const speed = this.stat.from.size / ((Date.now() - start) / 1000)
+                const speed = fromStat.size / ((Date.now() - start) / 1000)
                 this.logCopyAction(to, 'complete', {speed})
             } else {
                 await this.fns.copyFile(from, to)
