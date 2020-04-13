@@ -1,6 +1,6 @@
 {
   "name": "@apexearth/copy",
-  "version": "1.4.4",
+  "version": "1.4.5",
   "description": "Copy files via Node or command-line!",
   "main": "index.js",
   "scripts": {
