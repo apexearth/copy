@@ -39,7 +39,7 @@
   "homepage": "https://github.com/apexearth/copy#readme",
   "dependencies": {
     "commander": "^2.19.0",
-    "mkdirp": "^0.5.1",
+    "mkdirp": "^1.0.4",
     "prettysize": "^2.0.0",
     "sleep-promise": "^8.0.1"
   },
@@ -47,11 +47,17 @@
     "access": "public"
   },
   "devDependencies": {
-    "ava": "^1.2.1",
+    "ava": "^3.6.0",
     "coveralls": "^3.0.3",
     "dir-compare": "^1.7.2",
     "eslint": "^5.15.0",
+    "esm": "^3.2.25",
     "nyc": "^14.1.1",
     "rimraf": "^2.6.3"
+  },
+  "ava": {
+    "require": [
+      "esm"
+    ]
   }
 }
